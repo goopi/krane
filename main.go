@@ -30,69 +30,68 @@ const Usage = `
 `
 
 func main() {
-    args, _ := docopt.Parse(Usage, nil, true, Version, false)
+	args, _ := docopt.Parse(Usage, nil, true, Version, false)
 
-    if args["push"].(bool) {
-        token := args["TOKEN"].(string)
-        cert := args["--certificate"].(string)
-        sandbox := args["--develop"].(bool)
-        passphrase := args["--passphrase"].(bool)
+	if args["push"].(bool) {
+		token := args["TOKEN"].(string)
+		cert := args["--certificate"].(string)
+		sandbox := args["--develop"].(bool)
+		passphrase := args["--passphrase"].(bool)
 
-        alert, ok := args["--alert"].(string)
-        if !ok {
-            exitWithError("Enter your alert message")
-        }
+		alert, ok := args["--alert"].(string)
+		if !ok {
+			exitWithError("Enter your alert message")
+		}
 
-        if _, err := os.Stat(cert); os.IsNotExist(err) {
-            exitWithError("Could not find certificate file")
-        }
+		if _, err := os.Stat(cert); os.IsNotExist(err) {
+			exitWithError("Could not find certificate file")
+		}
 
-        var pass []byte
-        if passphrase {
-            fmt.Print("Password: ")
-            pass = gopass.GetPasswdMasked()
-        }
+		var pass []byte
+		if passphrase {
+			fmt.Print("Password: ")
+			pass = gopass.GetPasswdMasked()
+		}
 
-        client := NewClient(sandbox, cert, pass)
+		client := NewClient(sandbox, cert, pass)
 
-        payload := NewPayload()
-        payload.Alert = alert
+		payload := NewPayload()
+		payload.Alert = alert
 
-        if args["--badge"] != nil {
-            badge, err := strconv.Atoi(args["--badge"].(string))
-            if err != nil {
-                exitWithError("Invalid badge")
-            }
+		if args["--badge"] != nil {
+			badge, err := strconv.Atoi(args["--badge"].(string))
+			if err != nil {
+				exitWithError("Invalid badge")
+			}
 
-            payload.Badge = badge
-        }
+			payload.Badge = badge
+		}
 
-        if sound, ok := args["--sound"].(string); ok {
-            payload.Sound = sound
-        }
+		if sound, ok := args["--sound"].(string); ok {
+			payload.Sound = sound
+		}
 
-        notification := NewNotification()
-        notification.DeviceToken = token
-        notification.AddPayload(payload)
+		notification := NewNotification()
+		notification.DeviceToken = token
+		notification.AddPayload(payload)
 
-        err := client.Push(notification)
+		err := client.Push(notification)
 
-        if err == nil {
-            fmt.Printf("\x1b[32;1m%s\x1b[0m\n", "Push notification sent successfully")
-        } else {
-            exitWithError("Push notification unsuccessful")
-        }
+		if err == nil {
+			fmt.Printf("\x1b[32;1m%s\x1b[0m\n", "Push notification sent successfully")
+		} else {
+			exitWithError("Push notification unsuccessful")
+		}
 
-        return
-    }
+		return
+	}
 
-    // TODO: implement feedback
-    if args["feedback"].(bool) {
-    }
+	// TODO: implement feedback
+	if args["feedback"].(bool) {
+	}
 }
 
 func exitWithError(msg string) {
-    fmt.Printf("\x1b[31;1m%s\x1b[0m\n", msg)
-    os.Exit(1)
+	fmt.Printf("\x1b[31;1m%s\x1b[0m\n", msg)
+	os.Exit(1)
 }
-
