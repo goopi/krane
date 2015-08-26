@@ -24,9 +24,9 @@ type Client struct {
 func NewClient(sandbox bool, certificate string, passphrase []byte) *Client {
 	c := &Client{
 		passphrase: passphrase,
-		timeout: 5 * time.Second,
-		res:     make(chan interface{}, 50),
-		quit:    make(chan bool),
+		timeout:    5 * time.Second,
+		res:        make(chan interface{}, 50),
+		quit:       make(chan bool),
 	}
 
 	if sandbox {
