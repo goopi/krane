@@ -5,6 +5,7 @@ import "crypto/x509"
 import "encoding/pem"
 import "errors"
 import "net"
+import "time"
 
 type Connection struct {
 	uri         string
@@ -16,9 +17,9 @@ type Connection struct {
 
 func NewConnection(uri string, certificate []byte, passphrase []byte) *Connection {
 	c := &Connection{
-		uri: uri,
+		uri:         uri,
 		certificate: certificate,
-		passphrase: passphrase,
+		passphrase:  passphrase,
 	}
 
 	return c
@@ -61,9 +62,9 @@ func (c *Connection) newCertificate() (*tls.Certificate, error) {
 		}
 
 		keyPEMBlock = &pem.Block{
-			Type: keyPEMBlock.Type,
+			Type:    keyPEMBlock.Type,
 			Headers: keyPEMBlock.Headers,
-			Bytes: der,
+			Bytes:   der,
 		}
 	}
 
@@ -84,7 +85,7 @@ func (c *Connection) Open() error {
 	host, _, _ := net.SplitHostPort(c.uri)
 	conf := &tls.Config{
 		Certificates: []tls.Certificate{*cert},
-		ServerName: host,
+		ServerName:   host,
 	}
 
 	conn, err := net.Dial("tcp", c.uri)
@@ -101,6 +102,20 @@ func (c *Connection) Open() error {
 
 	c.conn = conn
 	c.client = tlsConn
+
+	return nil
+}
+
+func (c *Connection) SetReadDeadline(t time.Time) error {
+	return c.conn.SetReadDeadline(t)
+}
+
+func (c *Connection) Read(b []byte) error {
+	n, err := c.client.Read(b)
+
+	if n == 0 {
+		return err
+	}
 
 	return nil
 }

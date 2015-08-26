@@ -10,8 +10,8 @@ var Version = "0.0.1"
 
 const Usage = `
   Usage:
-    krane push TOKEN -c CERTIFICATE [options]
-    krane feedback
+    krane push TOKEN -c CERTIFICATE [-abs] [-d] [-p]
+    krane feedback -c CERTIFICATE [-d] [-p]
     krane -h | --help
     krane -v | --version
 
@@ -78,17 +78,44 @@ func main() {
 		err := client.Push(notification)
 
 		if err == nil {
-			fmt.Printf("\x1b[32;1m%s\x1b[0m\n", "Push notification sent successfully")
+			successMessage("Push notification sent successfully")
 		} else {
 			exitWithError("Push notification unsuccessful")
 		}
-
-		return
 	}
 
-	// TODO: implement feedback
 	if args["feedback"].(bool) {
+		cert := args["--certificate"].(string)
+		sandbox := args["--develop"].(bool)
+		passphrase := args["--passphrase"].(bool)
+
+		if _, err := os.Stat(cert); os.IsNotExist(err) {
+			exitWithError("Could not find certificate file")
+		}
+
+		var pass []byte
+		if passphrase {
+			fmt.Print("Password: ")
+			pass = gopass.GetPasswdMasked()
+		}
+
+		client := NewClient(sandbox, cert, pass)
+
+		devices, err := client.UnregisteredDevices()
+		if err != nil {
+			exitWithError("Error getting feedback")
+		}
+
+		if len(devices) > 0 {
+			fmt.Println(devices)
+		} else {
+			successMessage("No feedback available")
+		}
 	}
+}
+
+func successMessage(msg string) {
+	fmt.Printf("\x1b[32;1m%s\x1b[0m\n", msg)
 }
 
 func exitWithError(msg string) {
