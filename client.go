@@ -55,6 +55,9 @@ func (c *Client) Push(n *Notification) error {
 
 	defer c.conn.Close()
 
+	// set timeout
+	c.conn.SetReadDeadline(time.Now().Add(c.timeout))
+
 	payload, err := n.ToBinary()
 	if err != nil {
 		return err
@@ -65,7 +68,33 @@ func (c *Client) Push(n *Notification) error {
 		return err
 	}
 
-	// TODO: checking error response
+	go func() {
+		// Error-response packet (6 bytes)
+		// The packet has a command value of 8 (1 byte) followed
+		// by a status code (1 byte) and the notification
+		// identifier (4 bytes) of the malformed notification.
+		buffer := make([]byte, 6, 6)
+
+		err = c.conn.Read(buffer)
+		if err != nil {
+			c.quit <- true
+			return
+		}
+
+		// read the status (1 byte)
+		code := buffer[1]
+
+		c.res <- code
+	}()
+
+	select {
+	case r := <-c.res:
+		if code, ok := r.(uint8); ok {
+			return ErrorForCode(code)
+		}
+	case <-c.quit:
+		break
+	}
 
 	return nil
 }
@@ -80,7 +109,7 @@ func (c *Client) UnregisteredDevices() (devices []string, err error) {
 
 	defer c.conn.Close()
 
-	// set feedback timeout
+	// set timeout
 	c.conn.SetReadDeadline(time.Now().Add(c.timeout))
 
 	go c.feedbackLoop()

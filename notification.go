@@ -161,3 +161,27 @@ func (n *Notification) frameDataItems(token, payload []byte) *bytes.Buffer {
 
 	return buffer
 }
+
+// https://developer.apple.com/library/ios/documentation/NetworkingInternet/Conceptual/RemoteNotificationsPG/Chapters/CommunicatingWIthAPS.html#//apple_ref/doc/uid/TP40008194-CH101-SW12
+var ErrorResponseCodes = map[uint8]string{
+	0:   "No errors encountered",
+	1:   "Processing error",
+	2:   "Missing device token",
+	3:   "Missing topic",
+	4:   "Missing payload",
+	5:   "Invalid token size",
+	6:   "Invalid topic size",
+	7:   "Invalid payload size",
+	8:   "Invalid token",
+	10:  "Shutdown",
+	255: "Unknown error",
+}
+
+func ErrorForCode(code uint8) error {
+	msg, ok := ErrorResponseCodes[code]
+	if !ok {
+		msg = "Unknown error"
+	}
+
+	return errors.New(msg)
+}
