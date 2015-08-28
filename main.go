@@ -1,6 +1,7 @@
 package main
 
 import "github.com/docopt/docopt-go"
+import "github.com/goopi/krane/apns"
 import "github.com/howeyc/gopass"
 import "fmt"
 import "os"
@@ -53,9 +54,9 @@ func main() {
 			pass = gopass.GetPasswdMasked()
 		}
 
-		client := NewClient(sandbox, cert, pass)
+		client := apns.NewClient(sandbox, cert, pass)
 
-		payload := NewPayload()
+		payload := apns.NewPayload()
 		payload.Alert = alert
 
 		if args["--badge"] != nil {
@@ -71,7 +72,7 @@ func main() {
 			payload.Sound = sound
 		}
 
-		notification := NewNotification()
+		notification := apns.NewNotification()
 		notification.DeviceToken = token
 		notification.AddPayload(payload)
 
@@ -99,7 +100,7 @@ func main() {
 			pass = gopass.GetPasswdMasked()
 		}
 
-		client := NewClient(sandbox, cert, pass)
+		client := apns.NewClient(sandbox, cert, pass)
 
 		devices, err := client.UnregisteredDevices()
 		if err != nil {

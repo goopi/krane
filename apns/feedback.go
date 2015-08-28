@@ -1,4 +1,4 @@
-package main
+package apns
 
 import "encoding/hex"
 import "encoding/json"

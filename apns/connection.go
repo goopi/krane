@@ -1,4 +1,4 @@
-package main
+package apns
 
 import "crypto/tls"
 import "crypto/x509"

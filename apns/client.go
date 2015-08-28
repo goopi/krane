@@ -1,4 +1,4 @@
-package main
+package apns
 
 import "bytes"
 import "encoding/binary"
