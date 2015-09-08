@@ -5,8 +5,6 @@ import "encoding/binary"
 import "encoding/hex"
 import "encoding/json"
 import "errors"
-import "math/rand"
-import "time"
 
 // Notification Payload
 // https://developer.apple.com/library/ios/documentation/NetworkingInternet/Conceptual/RemoteNotificationsPG/Chapters/ApplePushService.html#//apple_ref/doc/uid/TP40008194-CH100-SW1
@@ -52,18 +50,19 @@ type Notification struct {
 	Identifier      int32
 	ExpirationDate  uint32
 	Priority        uint8
+	Sent            bool
+	ErrorCode       uint8
 }
 
 func NewNotification() (n *Notification) {
 	n = new(Notification)
 
-	src := rand.NewSource(time.Now().UnixNano())
-	n.Identifier = rand.New(src).Int31()
-
 	n.Payload = make(map[string]interface{})
 
 	// sent immediately
 	n.Priority = 10
+
+	n.Sent = false
 
 	return
 }
@@ -160,6 +159,15 @@ func (n *Notification) frameDataItems(token, payload []byte) *bytes.Buffer {
 	binary.Write(buffer, binary.BigEndian, n.Priority)
 
 	return buffer
+}
+
+func (n *Notification) ErrorMessage() string {
+	msg, ok := ErrorResponseCodes[n.ErrorCode]
+	if !ok {
+		msg = "Unknown error"
+	}
+
+	return msg
 }
 
 // https://developer.apple.com/library/ios/documentation/NetworkingInternet/Conceptual/RemoteNotificationsPG/Chapters/CommunicatingWIthAPS.html#//apple_ref/doc/uid/TP40008194-CH101-SW12

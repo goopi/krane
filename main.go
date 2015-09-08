@@ -72,16 +72,38 @@ func main() {
 			payload.Sound = sound
 		}
 
-		notification := apns.NewNotification()
-		notification.DeviceToken = token
-		notification.AddPayload(payload)
+		n := apns.NewNotification()
+		n.DeviceToken = token
+		n.AddPayload(payload)
 
-		err := client.Push(notification)
+		notifications := make([]*apns.Notification, 0)
+		notifications = append(notifications, n)
 
-		if err == nil {
-			successMessage("Push notification sent successfully")
-		} else {
-			exitWithError("Push notification unsuccessful")
+		err := client.Push(notifications)
+
+		if err != nil {
+			exitWithError("Push notifications unsuccessful")
+		}
+
+		sent := 0
+		unsent := 0
+
+		for _, n := range notifications {
+			if n.Sent {
+				sent++;
+			} else {
+				unsent++;
+			}
+		}
+
+		if sent > 0 {
+			msg := fmt.Sprintf("%d push notifications sent successfully", sent)
+			successMessage(msg)
+		}
+
+		if unsent > 0 {
+			msg := fmt.Sprintf("%d push notifications unsuccessful", unsent)
+			errorMessage(msg)
 		}
 	}
 
@@ -119,7 +141,11 @@ func successMessage(msg string) {
 	fmt.Printf("\x1b[32;1m%s\x1b[0m\n", msg)
 }
 
-func exitWithError(msg string) {
+func errorMessage(msg string) {
 	fmt.Printf("\x1b[31;1m%s\x1b[0m\n", msg)
+}
+
+func exitWithError(msg string) {
+	errorMessage(msg)
 	os.Exit(1)
 }

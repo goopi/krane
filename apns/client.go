@@ -24,8 +24,8 @@ type Client struct {
 func NewClient(sandbox bool, certificate string, passphrase []byte) *Client {
 	c := &Client{
 		passphrase: passphrase,
-		timeout:    5 * time.Second,
-		res:        make(chan interface{}, 50),
+		timeout:    2 * time.Second,
+		res:        make(chan interface{}),
 		quit:       make(chan bool),
 	}
 
@@ -44,8 +44,7 @@ func NewClient(sandbox bool, certificate string, passphrase []byte) *Client {
 	return c
 }
 
-// TODO: send multiple
-func (c *Client) Push(n *Notification) error {
+func (c *Client) Push(notifications []*Notification) error {
 	c.conn = NewConnection(c.gateway_uri, c.certificate, c.passphrase)
 
 	err := c.conn.Open()
@@ -55,48 +54,102 @@ func (c *Client) Push(n *Notification) error {
 
 	defer c.conn.Close()
 
-	// set timeout
-	c.conn.SetReadDeadline(time.Now().Add(c.timeout))
+	nots := make(chan *Notification)
 
-	payload, err := n.ToBinary()
-	if err != nil {
-		return err
+	go c.sendWorker(nots)
+	go c.responseWorker()
+
+	for i, n := range notifications {
+		n.Identifier = int32(i)
+		nots <- n
 	}
 
-	err = c.conn.Write(payload)
-	if err != nil {
-		return err
-	}
+	for closed := false; closed != true; {
+		select {
+		case r := <-c.res:
+			if re, ok := r.(*responseError); ok {
+				// failed notification
+				notifications[re.id].ErrorCode = re.code
+				notifications[re.id].Sent = false
 
-	go func() {
-		// Error-response packet (6 bytes)
-		// The packet has a command value of 8 (1 byte) followed
-		// by a status code (1 byte) and the notification
-		// identifier (4 bytes) of the malformed notification.
-		buffer := make([]byte, 6, 6)
+				// next index
+				next := int(re.id + 1)
 
-		err = c.conn.Read(buffer)
-		if err != nil {
-			c.quit <- true
-			return
+				// reset connection
+				err := c.conn.Open()
+				if err != nil {
+					// mark as unsent
+					for i := next; i < len(notifications); i++ {
+						notifications[i].Sent = false
+					}
+
+					closed = true
+					break
+				}
+
+				// re-send notifications
+				for i := next; i < len(notifications); i++ {
+					nots <- notifications[i]
+				}
+			}
+		case <-c.quit:
+			closed = true
 		}
-
-		// read the status (1 byte)
-		code := buffer[1]
-
-		c.res <- code
-	}()
-
-	select {
-	case r := <-c.res:
-		if code, ok := r.(uint8); ok {
-			return ErrorForCode(code)
-		}
-	case <-c.quit:
-		break
 	}
 
 	return nil
+}
+
+type responseError struct {
+	code uint8
+	id   int32
+}
+
+func (c *Client) sendWorker(notifications <-chan *Notification) {
+	for {
+		timer := time.NewTimer(3 * time.Second)
+
+		select {
+		case <-timer.C:
+			c.quit <- true
+		case n := <-notifications:
+			timer.Stop()
+
+			payload, err := n.ToBinary()
+			if err != nil {
+				continue
+			}
+
+			err = c.conn.Write(payload)
+			if err != nil {
+				continue
+			}
+
+			n.Sent = true
+		}
+	}
+}
+
+func (c *Client) responseWorker () {
+	// Error-response packet (6 bytes)
+	// The packet has a command value of 8 (1 byte) followed
+	// by a status code (1 byte) and the notification
+	// identifier (4 bytes) of the malformed notification.
+	buffer := make([]byte, 6, 6)
+
+	for {
+		c.conn.SetReadDeadline(time.Now().Add(c.timeout))
+
+		if err := c.conn.Read(buffer); err == nil {
+			// read the status (1 byte)
+			code := buffer[1]
+
+			// read the identifier (last 4 bytes)
+			id := binary.BigEndian.Uint32(buffer[cap(buffer) - 4:])
+
+			c.res <- &responseError{code, int32(id)}
+		}
+	}
 }
 
 func (c *Client) UnregisteredDevices() (devices []string, err error) {
@@ -109,10 +162,7 @@ func (c *Client) UnregisteredDevices() (devices []string, err error) {
 
 	defer c.conn.Close()
 
-	// set timeout
-	c.conn.SetReadDeadline(time.Now().Add(c.timeout))
-
-	go c.feedbackLoop()
+	go c.feedbackWorker()
 
 	for closed := false; closed != true; {
 		select {
@@ -128,7 +178,7 @@ func (c *Client) UnregisteredDevices() (devices []string, err error) {
 	return
 }
 
-func (c *Client) feedbackLoop() {
+func (c *Client) feedbackWorker() {
 	// Binary format of a feedback tuple (38 bytes)
 	b := make([]byte, 38, 38)
 
@@ -146,6 +196,8 @@ func (c *Client) feedbackLoop() {
 	deviceToken := make([]byte, 32, 32)
 
 	for {
+		c.conn.SetReadDeadline(time.Now().Add(c.timeout))
+
 		err := c.conn.Read(b)
 		if err != nil {
 			c.quit <- true
