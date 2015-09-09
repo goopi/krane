@@ -17,11 +17,24 @@ type Payload struct {
 	Alert            interface{} `json:"alert,omitempty"`
 	Badge            int         `json:"badge,omitempty"`
 	Sound            string      `json:"sound,omitempty"`
+	Category         string      `json:"category,omitempty"`
 	ContentAvailable int         `json:"content-available,omitempty"`
 }
 
 func NewPayload() *Payload {
 	return new(Payload)
+}
+
+// Custom action dictionary
+type Action struct {
+	Id      string `json:"id,omitempty"`
+	Title   string `json:"title,omitempty"`
+	LocKey  string `json:"loc-key,omitempty"`
+	LocArgs string `json:"loc-args,omitempty"`
+}
+
+func NewAction() *Action {
+	return new(Action)
 }
 
 // The "alert" dictionary
@@ -34,8 +47,8 @@ type AlertDictionary struct {
 	LocKey          string      `json:"loc-key,omitempty"`
 	LocArgs         []string    `json:"loc-args,omitempty"`
 	LaunchImage     string      `json:"launch-image,omitempty"`
+	Actions         []*Action   `json:"actions,omitempty"`
 }
-// TODO: custom notification actions
 
 func NewAlertDictionary() *AlertDictionary {
 	return new(AlertDictionary)
